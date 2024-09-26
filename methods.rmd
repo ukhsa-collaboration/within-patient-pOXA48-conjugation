@@ -4,11 +4,11 @@ subtitle: "Plasmid conjugation drives within-patient plasmid diversity"
 author: 'Alice Ledda, Fan Grayson, Toby Nonnenmacher, Leo Loman, UK Health Security Agency'
 date: ""
 output:
-  pdf_document: default
   html_document:
     highlight: kate
     toc: true
     toc_float: true
+  pdf_document: default
 # header-includes:
 ---
 
