@@ -1,0 +1,1323 @@
+---
+title: "Supplementary Methods"
+subtitle: "Plasmid conjugation drives within-patient plasmid diversity" 
+author: 'Alice Ledda, Fan Grayson, Toby Nonnenmacher, Leo Loman, UK Health Security Agency'
+date: ""
+output:
+  pdf_document: default
+  html_document:
+    highlight: kate
+    toc: true
+    toc_float: true
+# header-includes:
+---
+
+
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+pre {
+  overflow-x: auto;
+  max-height: 80vh;
+  border: 0; <!-- Remove R markdown's default border -->
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+
+```{r setup, include=FALSE, eval=TRUE}
+library(knitr)
+hook_output = knit_hooks$get('source')  #this is the output for code
+ 
+knit_hooks$set(source = function(x, options) {
+  # use if the output is PDF and you set an option linewidth to e.g. 70
+  # in the chunk options
+  if (!is.null(n <- options$linewidth) & knitr::is_latex_output()) {
+    x <- strwrap(x, width = n, exdent = 4)
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, tidy.opts = list(width.cutoff = 90))
+library(ggplot2)
+library(reticulate)
+library(tidyverse)
+library(ape)
+# library(tinytex)
+# library(formatR)
+```
+
+
+
+
+
+This document provides information on the code and analysis used for our research project.
+
+
+
+---
+
+
+# Dataset
+
+## Overview
+
+Data was provided by Katie L Hopkins (Antimicrobial Resistance and Healthcare Associated Infections (AMRHAI)
+Reference Unit - Specialised Microbiology and Laboratories Division - UK
+Health Security Agency and Antimicrobial Resistance and Prescribing - HCAI, Fungal, AMR, AMU &
+Sepsis Division - UK Health Security Agency).
+
+The dataset consists of 527 sequences.
+These come from 243 patients.
+Each patient has between 2 to 5 sequences.
+The sequences for each patient were either:
+
+1) sequences with the same resistance that were found in different bacterial hosts in the same patient, or
+2) sequences with the same bacterial hosts but with different resistances found in the same patient.
+
+
+
+
+
+
+
+## Filtering the dataset
+
+We focus on patients with sequences with the *OXA-48* gene.
+Sequences were lab tested for containing OXA-48 (and other genes encoding resistance mechanisms to carbapenems, such as NDM and VIM).
+
+We filter down to patients with at least one sequence determined to contain OXA-48.
+This leaves us with 121 patients with 269 sequences between them.
+
+Later on, we will further remove sequences due to later issues with assembly, alignment, and data quality (see "Deduplication" and "Checking consistency" sections).
+This will eventually leave us with 115 patients with 256 sequences between them.
+
+<!-- Later on, we will remove sequences from the following patients: -->
+
+<!-- - PAT182 -->
+<!-- - PAT186 -->
+<!-- - PAT199 -->
+<!-- - PAT202 -->
+<!-- - PAT230 -->
+<!-- - PAT243 -->
+
+<!-- This is due to later issues with assembly, alignment, and data quality (see "Deduplication" and "Checking consistency" sections). -->
+<!-- This will leave us with 115 patients with 256 sequences between them. -->
+
+
+
+
+
+
+
+
+
+
+## Sequence Isolation
+
+The `fastq` files (containing the short read sequence data) contain duplicates.
+Some of the files were duplicates due to either:
+    - the _same_ sample was sequenced twice - (we would have kept these)
+    - or the sequenced file did not correspond to the lab assigned species (in this case nobody knows what was sequenced).
+
+It was safer to exclude duplicated samples in the analysis (see Deduplication section).
+<!-- We add back in samples that do not contain OXA-48 from patients who have at least one other sample that does contain OXA-48. -->
+
+
+
+
+# Sequence reconstruction
+
+To be sure that we had the best plasmid reconstruction possible, we reconstructed the plasmid sequences using two parallel approaches:
+  1) "hybrid de-novo" approach, and
+  2) a standard "on template"/"reference-based" reconstruction.
+
+For both approaches, the plasmid sequence we used as a template has refseq accession number __`JN626286.1`__, published by Poirel,L., Bonnin,R.A. and Nordmann,P in 2011.
+- This can be accessed in the [NCBI Nucleotide library](https://www.ncbi.nlm.nih.gov/nuccore/JN626286).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Method 1: Hybrid de-novo Reconstruction
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 1: SPAdes
+
+- We run the `Plasmid SPAdes` program with standard options, using the High Performance Computing Cluster (HPC).
+- We pass as inputs all of the `fastq` files for each sample in the dataset
+- The link to the SPAdes github repository is: [https://github.com/ablab/spades](https://github.com/ablab/spades).
+- The bash job file to run this has been included in the cell below:
+
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+<!-- ```{bash COplasmidSPAdes.sge, echo=TRUE,eval=FALSE, fig.cap="Script to run Plasmid SPAdes on the HPC cluster", knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, tidy.opts = list(width.cutoff = 60)} -->
+```{bash COplasmidSPAdes.sge, echo=TRUE,eval=FALSE, fig.cap="Script to run Plasmid SPAdes on the HPC cluster", tidy=TRUE, tidy.opts=list(width.cutoff=90)}
+#!/bin/bash
+#$ -N SPAdes 
+#$ -S ./logsAnderrors/ 
+#$ -pe multithread 8 
+#$ -l h_vmem=8G
+
+source $HOME/.bash_profile
+source /etc/profile.d/modules.sh
+module purge
+module load python/2.7
+module load spades
+
+spades.py -1 input1 -2 input2 -o output \
+--plasmid \
+--phred-offset 33 \
+--careful \
+--cov-cutoff auto \
+--threads 8 \
+--memory 8 \
+-k '21,33,55,77'
+```
+\normalsize
+:::
+
+
+- The outputs were stored in a folder called `SPAdesAss`, and the `SPAdes` output is saved in a unique folder for each sample.
+- The `fasta` output files we are interested in are saved as `contigs.fasta` within each sample's folder.
+- We collate all of these `contigs.fasta` files into a new folder and rename them after their sample `molisId` using the python script below:
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>python</tt> </div>
+\small
+```{python rename_fasta_files, echo=TRUE, eval=FALSE, python.reticulate = FALSE, fig.cap="Script to rename and move plasmid SPAdes outputs on the HPC cluster"}
+import os, shutil, logging
+
+input_folder = r"~/PlasmidSpadesAssCO"
+output_folder = r"~/all_contigs_files"
+log_filepath = r"~/all_contigs_files/rename_contigs.log"
+contig_folder_prefix = "COPlasmidSpadesAss"
+
+# Setup logging
+logging.basicConfig(filename=log_filepath, level=logging.INFO)
+
+# Get names of contig folders
+contig_folders = [x for x in os.listdir(input_folder) if x.startswith(contig_folder_prefix)]
+
+# Iterate over contig folders and copy to new destination with new name
+for c in contig_folders[:5]:
+    new_filename = f"{c.replace(contig_folder_prefix, '')}.fasta"
+    destination_filepath = f"{output_folder}/{new_filename}"
+    source_filepath = f"{input_folder}/{c}/contigs.fasta"
+    if not os.path.exists(destination_filepath):
+        try:
+            shutil.copy(source_filepath, destination_filepath) # Copy files
+            # os.rename(source_filepath, destination_filepath) # Rename files
+            logging.info(f"Successfully copied '{source_filepath}' to '{destination_filepath}'")
+        except:
+            logging.info(f"Unable to copy '{source_filepath}' to '{destination_filepath}'")
+    else:
+        logging.info((
+          f"File '{new_filename}' already exists." +
+          f"Not attempting to copy '{source_filepath}' to '{destination_filepath}'"
+        ))
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 2: Creating dotplots
+
+- We tried using both `lastz` and `mummer4` to assemble/align from the SPAdes outputs.
+- These programs output coordinate files that we can plot dotplots from.
+- We decided not to use lastz, and use mummer4 instead.
+- The link to the mummer4 homepage is [https://mummer4.github.io/](https://mummer4.github.io/).
+- The steps to run the mummer4 pipeline are:
+  1. Run `nucmer`
+  2. Run `delta-filter` on outputs of 1.
+  3. Run `show-coords` on outputs of 2.
+  4. (Optional) Run `show-aligns` also on outputs of 2. (This isn't exactly needed but is nice to have)
+  5. Run python script to plot dotplots from output of 3.
+- Note: `nucmer`, `delta-filter`, `show-coords`, and `show-aligns` are command line tools that come with mummer4.
+- The bash job file for running the mummer4 pipeline (steps 1-4) is included below:
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash mummer_pipeline.sh, echo=TRUE, eval=FALSE}
+#!/bin/bash
+#SBATCH --job-name=mummer_pipeline
+#SBATCH --mem=12GB
+#SBATCH --time=120:00:00
+
+### SETUP ###
+# Home directory:
+home="~"
+# Plasmids directory:
+plasmids_path="~"
+
+# Query Contigs directory
+query_contigs_path=$plasmids_path/all_contigs_files
+# Reference Contig to compare to
+ref_contig_path=$plasmids_path/pOXA48.fasta
+
+# Output directories:
+output_path=$query_contigs_path/mummer_outputs
+delta_path=$output_path/delta_files
+filtered_delta_path=$output_path/filtered_delta_files
+coord_path=$output_path/filtered_coordinate_files
+aln_path=$output_path/filtered_alignment_files
+
+# Create output directories (if not exists)
+mkdir -p $output_path
+mkdir -p $delta_path
+mkdir -p $filtered_delta_path
+mkdir -p $coord_path
+mkdir -p $aln_path
+
+# Select conda environment:
+source ~/anaconda3/etc/profile.d/conda.sh
+
+ref_contig=`basename "$ref_contig_path" .fasta`;
+
+# Shell option to expand unmatched shell glob to expand to nothing
+# i.e. if there are no files to iterate over, don't perform `do` action
+shopt -s nullglob
+
+unset IFS # Reset default delimiter for arrays
+
+echo "Reference contig file: ${ref_contig_path}"
+
+# Iterating over contig files:
+for FILE in "$query_contigs_path"/*.fasta; do
+  echo "-----"
+  echo "Query contig file: ${FILE}"
+  query_contig=`basename "$FILE" .fasta`;
+  echo "Applying nucmer"
+  nucmer --delta="${delta_path}/${ref_contig}_${query_contig}.delta" "$ref_contig_path" "$FILE"
+  echo "Applying delta-filter"
+  delta-filter \
+    -q "${delta_path}/${ref_contig}_${query_contig}.delta" >
+    "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta"
+  echo "Applying show-coords to filtered"
+  show-coords \
+    -T \
+    -rcl \
+    "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" >
+    "${coord_path}/${ref_contig}_${query_contig}.filtered.coord"
+  echo "Applying show-aligns to filtered"
+  IFS=$' ' # Change delimiter to space
+  LINES=`grep ">" "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" |
+    awk '{sub("^>","");print}'`
+  IFS=$'\n' # Change delimiter to newline
+  for X in ${LINES}; do
+    IFS=$' ' read -r -a array <<< "$X"
+    rId=${array[0]} # reference node id
+    qId=${array[1]} # query node id
+    echo "Comparing ${rId} to ${qId}"
+    show-aligns \
+      -r "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" "${rId}" "${qId}" >>
+      "${aln_path}/${ref_contig}_${query_contig}.filtered.${qId}.aligns";
+  done;
+done;
+```
+\normalsize
+<!-- HTML VERSION: -->
+<!-- ```{bash mummer_pipeline.sh, echo=TRUE, eval=FALSE} -->
+<!-- #!/bin/bash -->
+<!-- #SBATCH --job-name=mummer_pipeline -->
+<!-- #SBATCH --mem=12GB -->
+<!-- #SBATCH --time=120:00:00 -->
+
+<!-- ### SETUP ### -->
+<!-- # Home directory: -->
+<!-- home="~" -->
+<!-- # Plasmids directory: -->
+<!-- plasmids_path="~" -->
+
+<!-- # Query Contigs directory -->
+<!-- query_contigs_path=$plasmids_path/all_contigs_files -->
+<!-- # Reference Contig to compare to -->
+<!-- ref_contig_path=$plasmids_path/pOXA48.fasta -->
+
+<!-- # Output directories: -->
+<!-- output_path=$query_contigs_path/mummer_outputs -->
+<!-- delta_path=$output_path/delta_files -->
+<!-- filtered_delta_path=$output_path/filtered_delta_files -->
+<!-- coord_path=$output_path/filtered_coordinate_files -->
+<!-- aln_path=$output_path/filtered_alignment_files -->
+
+<!-- # Create output directories (if not exists) -->
+<!-- mkdir -p $output_path -->
+<!-- mkdir -p $delta_path -->
+<!-- mkdir -p $filtered_delta_path -->
+<!-- mkdir -p $coord_path -->
+<!-- mkdir -p $aln_path -->
+
+<!-- # Select conda environment: -->
+<!-- source ~/anaconda3/etc/profile.d/conda.sh -->
+
+<!-- ref_contig=`basename "$ref_contig_path" .fasta`; -->
+
+<!-- shopt -s nullglob # Shell option to expand unmatched shell glob to expand to nothing i.e. if there are no files to iterate over, don't perform `do` action -->
+<!-- unset IFS # Reset default delimiter for arrays -->
+
+<!-- echo "Reference contig file: ${ref_contig_path}" -->
+
+<!-- # Iterating over contig files: -->
+<!-- for FILE in "$query_contigs_path"/*.fasta; do -->
+<!--     echo "-----" -->
+<!--     echo "Query contig file: ${FILE}" -->
+<!--     query_contig=`basename "$FILE" .fasta`; -->
+<!--     echo "Applying nucmer" -->
+<!--     nucmer --delta="${delta_path}/${ref_contig}_${query_contig}.delta" "$ref_contig_path" "$FILE" -->
+<!--     echo "Applying delta-filter" -->
+<!--     delta-filter -q "${delta_path}/${ref_contig}_${query_contig}.delta" > "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" -->
+<!--     echo "Applying show-coords to filtered" -->
+<!--     show-coords -T -rcl "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" > "${coord_path}/${ref_contig}_${query_contig}.filtered.coord" -->
+<!--     echo "Applying show-aligns to filtered" -->
+<!--     IFS=$' ' # Change delimiter to space -->
+<!--     LINES=`grep ">" "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" | awk '{sub("^>","");print}'` -->
+<!--     IFS=$'\n' # Change delimiter to newline -->
+<!--     for X in ${LINES}; do -->
+<!--         IFS=$' ' read -r -a array <<< "$X" -->
+<!--         rId=${array[0]} # reference node id -->
+<!--         qId=${array[1]} # query node id -->
+<!--         echo "Comparing ${rId} to ${qId}" -->
+<!--         show-aligns -r "${filtered_delta_path}/${ref_contig}_${query_contig}.filtered.delta" "${rId}" "${qId}" >> "${aln_path}/${ref_contig}_${query_contig}.filtered.${qId}.aligns"; -->
+<!--     done; -->
+<!-- done; -->
+<!-- ``` -->
+:::
+
+<!-- - One option to create the dotplots (step 5 above) is the following: -->
+<!-- - Clone the [plasmids repository on the UKHSA __gitlab__](https://gitlab.phe.gov.uk/advanced-analytics/plasmids/-/tree/master). -->
+<!-- - Run the following command line python script (make sure you have your python environment set up, and are in the appropriate directory to run `make_dotplot.py`): -->
+
+<!-- :::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"} -->
+<!-- <div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div> -->
+<!-- \small -->
+<!-- ```{bash make_dotplot.py, echo=TRUE, eval=FALSE} -->
+<!-- python "make_dotplot.py" --input "${coord_path}" --program "show-coords" -r "${ref_contig}" -o "${coord_path}/dotplots" -->
+<!-- ``` -->
+<!-- \normalsize -->
+<!-- ::: -->
+
+<!-- - Alternatively, option 2, run the python script below: -->
+
+<!-- :::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"} -->
+<!-- ```{python plot_dotplots_option_1, echo=TRUE, eval=FALSE, python.reticulate = FALSE} -->
+<!-- # Setup -->
+<!-- import sys -->
+<!-- from src.dotplotter.dotplotter import MummerplotDotPlotter -->
+<!-- from src.plot_settings import setup_plot_theme -->
+<!-- setup_plot_theme() -->
+
+<!-- # name of reference contig -->
+<!-- reference_contig_name = "pOXA48" -->
+
+<!-- # directory of show-coords outputs to create dotplot plots from: -->
+<!-- # - ${coord_path} in the bash script above -->
+<!-- input_directory = ""  -->
+
+<!-- # directory to save dotplot plots to -->
+<!-- save_directory = f"{input_directory}/dotplots"  -->
+
+<!-- dp = MummerplotDotPlotter( -->
+<!--     input_directory = input_directory, -->
+<!--     save_directory = save_directory, -->
+<!--     reference_contig_name = reference_contig_name, -->
+<!-- ) -->
+
+<!-- dp.run() -->
+<!-- ``` -->
+<!-- ::: -->
+
+
+<!-- - Alternatively, option 3, if you cannot access the UKHSA gitlab or are running into problems, run the following script: -->
+
+To create the dotplots (step 5 above), use the following python script:
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>python</tt> </div>
+\small
+```{python plot_dotplots_option_2, echo=TRUE, eval=FALSE, python.reticulate = FALSE}
+import os, re
+import pandas as pd
+from matplotlib.axes import Axes
+import matplotlib.pyplot as plt
+import numpy as np
+
+# directory of show-coords outputs to create dotplot plots from
+# - ${coord_path} in the bash script above
+path_to_show_coords_outputs = "" 
+
+# directory to save dotplot plots to
+save_directory = "" 
+
+reference_contig_name = "pOXA48"
+show_coords_filenames = [x for x in os.listdir(path_to_show_coords_outputs) if x.endswith(".coord")]
+
+def plot_lines(
+    ax: Axes,
+    x0: list[float],
+    x1: list[float],
+    y0: list[float],
+    y1: list[float],
+    plot_args: dict = {"linewidth": 2, "markersize": 3}
+    ) -> Axes:
+    """
+    Returns plot of lines (x_0, y_0) to (x_0, y_0) for x_0, x_1, y_0, y_1 in zip(x0, x1, y0, y1).
+  
+    Instead of individually plotting lines, we plot one line object broken up by NaN values.
+  
+    E.g. say we have the following
+        - ``x0 = [0, 0, 10]``
+        - ``x1 = [5, 1, 25]``
+        - ``y0 = [9, 8, 21]``
+        - ``y1 = [14, 9, 36]``
+  
+    This function will plot on the `ax` Axes three lines:
+        - (0,9) to (5,14)
+        - (0,8) to (1,9)
+        - (10,21) to (25,36)
+    
+    This is done by plotting the following:
+        ``plt.plot(x = [0,5,NaN,0,1,NaN,10,25,NaN], y = [9,14,NaN,8,9,NaN,21,36,NaN])``
+    
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes object to add artists to
+    x0, x1, y0, y1 : list of float
+        List of coordinates of lines (x0, y0) to (x1, y1)
+    plot_args : str, optional
+        kwargs to pass to plot function
+    
+    Returns
+    -------
+    matplotlib.axes.Axes
+        Dotplot plot
+    """
+  
+    # Create list of x and y values separated by NaNs
+    x = np.array([[start, end, np.nan] for start, end in zip(x0, x1)]).ravel()
+    y = np.array([[start, end, np.nan] for start, end in zip(y0, y1)]).ravel()
+    
+    # Plot x, y onto axes:
+    ax.plot(x, y, "o-", **plot_args)
+  
+    return ax
+
+# iterate over all files in show_coords_filenames
+for filename in show_coords_filenames:
+    # When we turn to class, all this should be moved to relevant dotplotter...
+    df = pd.read_csv(
+        os.path.join(path_to_show_coords_outputs, filename),
+        sep="\t", # Tab delimited file
+        skiprows=[0,1,2,3], # Ignore the first 4 lines of file
+        index_col=False, # No index column contained in file
+        usecols=[0,1,2,3], # Only read the first 4 columns
+        names=["x0", "x1", "y0", "y1"] # Name of columns
+    ).assign(hue=0)
+    
+    sample_name = ".".join(filename.split(".")[:-1])
+    
+    # Create Plot
+    fig, ax = plt.subplots(figsize=(7, 7))
+  
+    # Plot lines by each group
+    for _, d in df.groupby("hue"):
+        ax = plot_lines(ax, d.x0, d.x1, d.y0, d.y1)
+    
+    # Additional plot features
+    ax.axis("square") # equal axes and square plot
+    ax.set_xlabel(reference_contig_name)
+    ax.set_ylabel(sample_name)
+    
+    # Save plot:
+    plt.savefig(os.path.join(save_directory, filename.replace(".coord", ".png")))
+    plt.close()
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 3: Manually assessing dotplots
+
+- We manually checked through all of the dotplots.
+- Our rule of thumb for a "good" sample was:
+  1. coverage throughout, with some freedom either end (i.e. for `JN626286.1`, this has ~60k base pairs, so we'd want coverage from ~4k to ~55k. This means diagonal lines must lie over this range on the x axis).
+  2. diagonal lines must touch from x axis (with some freedom - e.g. either end, and longer diagonal lines may be slightly broken - only allow for very small gaps)
+  3. coverage between 5k-10k is critical - this is where `OXA-48` is present in `JN626286.1`
+
+- This will help us to get a good idea of whether our reference based assembly (second reconstruction method) is valid or not.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 4: Checking `contigs.fasta` with `mlst`
+
+- __See: [https://github.com/tseemann/mlst](https://github.com/tseemann/mlst)__
+- Once samples were deduplicated and potentially contaminated samples were excluded, the results from MLST agreed with the species assignation we were provided. SO we kept the species identification that we were provided by K. Hopkins. 
+- there is a file with all the species identification andthe MLST results. *add the file name here*
+- NOTE: I do not think this step belongs here, it belongs out of the hybrid assembly pipeline, but it is not a big deal.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Method 2: Reference-based assembly
+
+
+
+
+
+
+
+### Step 1: Indexing with BowTie2
+
+We run BowTie2 on the HPC to index the OXA-48 reference plasmid.
+
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash Bowtie2Index.sge, echo=TRUE,eval=FALSE}
+#!/bin/bash
+
+
+source $HOME/.bash_profile
+source /etc/profile.d/modules.sh
+module purge
+module load bowtie2
+
+bowtie2-build -f pOXA48.fasta OXA48
+
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 2: Alignment with BowTie2
+
+Then we aligned the sequence reads on the reference using Bowtie2 on each set of `fastq` files for each sample.
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash BowtieScript.sge, echo=TRUE,eval=FALSE}
+#!/bin/bash
+#$ -N bowtie2 
+#$ -S ./logsAnderrors/ 
+#$ -pe multithread 8 
+#$ -l h_vmem=8G
+
+
+source $HOME/.bash_profile
+source /etc/profile.d/modules.sh
+
+module purge
+
+module load bowtie2
+
+bowtie2 -x OXA48 -q -1 input_1 -2 input_2 -S outputFile
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 3: Build consensus using Samtools
+
+Then we run samtools consensus in two different ways. One with the default options and one with cutoffs on the base quality and alignment quality.
+
+The default one was as in the following script
+
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash samtoolsConsensus.sh, echo=TRUE,eval=FALSE}
+#!/bin/bash
+#SBATCH --job-name=samtoolsConsensus.sh
+#SBATCH --mem=12GB
+#SBATCH --time=120:00:00
+
+# Running simple samtools script to get the consensus sequence
+for FILE in `ls Bowtie2/*.sam |awk '{gsub(/.sam/,"");print}'`; do
+  samtools consensus -f fasta -a -o "$FILE".pl.fst "$FILE".pl.bam ;
+done ;
+```
+\normalsize
+:::
+
+
+- Its output is called `MolisID.pl.fst`.
+- The concatenated file using all the files obtained using this scripts + the reference is called all.fst
+
+- The `samtools` consensus script with stronger parameters is here
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash samtoolsConsensusID.sh, echo=TRUE,eval=FALSE}
+#!/bin/bash
+#SBATCH --job-name=testrun-samtools.sh
+#SBATCH --mem=12GB
+#SBATCH --time=120:00:00
+#SBATCH --partition=PARTITION-NAME
+
+# Running simple samtools script to get the consensus sequence
+for FILE in `ls Bowtie2/*.sam |awk '{gsub(/.sam/,"");print}'`; do
+  samtools consensus -f fasta -a \
+  --min-MQ 30 \
+  --min-BQ 30 \
+  --show-del yes \
+  -o "$FILE".ID.fst "$FILE".pl.bam ;
+done ;
+```
+\normalsize
+:::
+
+
+- We introduced a minimum quality for base quality and alignment quality of 30.
+- We also asked it to show deletions, but this option could be relaxed.
+- The output is called `MolisID.ID.fst`.
+- The concatenation of all the files and the reference is called `all_ID.fst`.
+
+<!-- __MAYBE BREAK THIS INTO A NEW SECTION TITLED 'CONSTRUCTING PHYLOGENETIC TREES', and STEP 4/5/6 and STEP 7 ARE OPTIONS 1 and OPTIONS 2 FOR CONSTRUCTING TREES__ -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Step 4: Cleaning/editing consensus
+
+- We then started cleaning the concatenated file to be aligned using R. 
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>r</tt> </div>
+\small
+```{r preliminary_analysis_seq.R,echo=TRUE,eval=FALSE}
+library(tidyverse)
+library(ape)
+
+
+#   all.fst
+#   the file reconstructed using samtoools consensus with standard options
+#####################################################################
+
+seq<-read.dna("all.fst",format="fasta")
+seqc<-as.character(seq)
+
+numn<-t(sapply(seqc,function(x){mean(x=="n")}))
+
+hist(numn)
+hist(numn,breaks=100)
+
+seqc_clean<-lapply(seqc[which(numn<0.2)],function(x){x[x!="n"]})
+#write.dna(as.DNAbin(seqc_clean),file="all_clean.fst",format="fasta",colsep="",blocksep="")
+
+seqc_clean_withN<-seqc[which(numn<0.2)]
+#write.dna(as.DNAbin(seqc_clean_withN),
+# file="all_clean_withN.fst",format="fasta",colsep="",blocksep="")
+
+```
+\normalsize
+:::
+
+This leaves us with two files to align:
+- one where we removed all the `N`s
+- one where we kept all the `N`s that samtools conssensus put there.
+
+Having the `N`s might be important because it means that there was a base, just not a strong enough signal as to determine which base it is.
+
+We also run the same script using the quality filtered consensus files.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Deduplication
+
+Of the 310 `fastq` files, 46 were duplicates (pairs of data from the _same_ plasmid sequence samples ending in a '.0' or '.1').
+
+In case of a duplicated file, we used the following algorithm to choose one of the two available samples:
+
+1. __species__: if one of the samples was classified by MLST as the same species as the one K. Hopkins gave us and one did not -> the sample of a different species was discarded irrespective of plasmid presence/absence
+2. __plasmid presence__: if both samples were classified by MLST as the SAME species K. Hopkins assigned them to AND one of them had the OXA-48 plasmid and one did not have the plasmid, then we kept the plasmid-carrying sample
+3. __plasmid length__: if both plasmids belonged to the same species AND both had the OXA-48 plasmid, then the shorter reconstructed plasmid was discarded (often the difference was 10s to 100s basepairs, so probably there was not much of a difference, but we had to enforce a general rule)
+
+
+PATIENT199 had 2 couples of duplicated samples.
+<!-- The patient only samples were these two couples of duplicated samples. -->
+In the first couple of duplicated samples (PAT199-S_431.0 and PAT199-S431.1), neither of them were assigned to the same SPECIES assigned by K. Hopkins, so both were discarded.
+Discarding them would have left us with just one sample (which was again a duplicated sample), so we choose to discard the entire patient.
+
+The list of 48 samples that were excluded in the deduplication process is the following:
+<!-- ( __NON-MOLIS-ID identifiers. These can stay__ ) -->
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+```{r eval=FALSE}
+"PAT09-S_022.1"
+"PAT111-S_243.0"
+"PAT111-S_244.0"
+"PAT120-S_264.1"
+"PAT125-S_275.0"
+"PAT125-S_276.1"
+"PAT128-S_282.1"
+"PAT129-S_284.1"
+"PAT155-S_336.0"
+"PAT156-S_338.1"
+"PAT157-S_340.0"
+"PAT157-S_342.0"
+"PAT161-S_350.1"
+"PAT174-S_377.0"
+"PAT174-S_376.1"
+"PAT183-S_397.0"
+"PAT199-S_430.0"
+"PAT199-S_431.0"
+"PAT199-S_430.1"
+"PAT199-S_431.1"
+"PAT201-S_436.1"
+"PAT21-S_050.0"
+"PAT21-S_051.0"
+"PAT211-S_457.0"
+"PAT211-S_458.1"
+"PAT214-S_464.1"
+"PAT222-S_481.1"
+"PAT23-S_054.1"
+"PAT230-S_497.1"
+"PAT235-S_509.0"
+"PAT240-S_520.1"
+"PAT28-S_064.0"
+"PAT33-S_074.0"
+"PAT37-S_083.1"
+"PAT37-S_084.1"
+"PAT37-S_085.1"
+"PAT45-S_102.1"
+"PAT49-S_110.1"
+"PAT51-S_114.1"
+"PAT52-S_117.1"
+"PAT56-S_124.0"
+"PAT56-S_125.1"
+"PAT56-S_126.1"
+"PAT72-S_159.1"
+"PAT80-S_176.1"
+"PAT90-S_197.0"
+"PAT93-S_206.1"
+"PAT96-S_212.1"
+```
+:::
+
+
+We excluded a total of 48 samples, 4 of which were from PATIENT199 alone.
+We keep the other non-discarded sample and remove the '.0' or '.1' suffix. (e.g. we discard PAT93-S_206.1 but keep PAT93-S_206.0 and rename this sample PAT93-S_206)
+After deduplication, we were left with 262 samples (and fastq files) from 118 patients.
+The script used to deduplicate all the files is `scripts/Deduplicate.R`
+
+The new files for reprocessing many of the analysis above after deduplication are as follows:
+
+- epi data that came with the files:
+  - Original file `20210615-dataKatieMolis.csv`.
+  - __Deduplicated file "finalEpiDataRef.csv"__
+- spreadsheet with assembly data:
+  - Original file `PlasmidsToDelete-AssemblytoClean.csv`.
+  - __Deduplicated file `deduplicatedAssembly.csv` __
+- full aligment of all the reconstructed plasmids.
+  - Original file "all_clean_id_aligned.fst".
+  - __Deduplicated file `deduplicated_id_seq_clean_aligned.fasta`__
+  - Aligned file (see below) __`REalign_deduplicated_id_seq_clean.fst`__.
+  - File with Patient Ids instead of MOLIS IDs __`REalign_deduplicated_id_seq_clean_PAT.fst`__
+- Alignment above with problematic regions masked off (See below for details):
+  - __Deduplicated file `Final_alignment_masked_PAT_50bases_0.1samples.fst`__
+  - _NOTE: the deduplicated file has had the MOLIS_ID subsituted with the PAT-Sample_IDs_
+
+New R scripts that run the analysis on deduplicated files:
+
+- script for making all the plots of epidemiological features of dataset (Figure 1):
+  - `plotting_epidemiological_features.R`
+  <!-- - *`scripts/ResultsScriptDeduplicateFinal.R`* -->
+- script for tree figures:
+  <!-- - *`scripts/TreePlot_Plasmids_dedu_Final.R`* -->
+  - `plotting_trees.R`
+- script for redoing the tree (see forward for details):
+  - `scripts/Re-alignment4betterTree.R` and `mask_mutations_mainclade_OXA48.R`
+- script for within patient genetic distance analysis:
+  - `scripts/withinPatDistNewDedu.R`
+- script to create the same patient trees:
+  - `scripts/treeSamePAT.R`
+- script for the genomic analysis:
+  - `scripts/Genomic_analysis.R`
+- script for parametric hypothesis tests:
+- script for non-parametric hypothesis tests:
+
+
+
+
+
+
+
+
+
+
+
+# Checking consistency
+
+
+Of the 262 samples:
+
+- 2 have nothing at all in any pipeline (PAT07-S_014 and PAT73-S_162)
+- 1 further sample was lost by the PS-M pipeline only (PAT241-S_521)
+
+<!-- We remove these, leaving us with 259 samples. -->
+
+
+The Plasmids-SPAdes-mummer pipeline yielded 260 dotplots, 17 of which were empty. 
+
+The samtools pipeline produced an alignment containing 262 (+ the reference genome) aligned sequences (of length at least 49,806 bps out of 61,881 bps of the reference plasmid).  
+The 28 samples for which we were not able to get a reconstructed sequence were also mostly lacking a proper reconstruction in the other pipelines.
+
+We do encounter 2 exceptions, PAT202-S_437 and PAT202-S_438, which seem to be having insertions in the last part of the plasmid, but also maybe experiencing:
+
+- poor sequencing
+- too many contigs
+- large gap(s) (in particular in the middle of the sequence)
+
+We remove the samples from patient PAT202.
+
+3 samples seem to have the OXA-48 gene and nothing else:
+
+- PAT09-S_020 has the OXA-181 allele, which is usually located in the chromosome.
+- PAT182-S_394 is an E.coli ST38 sample, where the OXA-48 gene is located in the chromosome. We remove this sample. Patient PAT182's other sample (S_395) is not a sample witn OXA-48, so we remove Patient PAT182 entirely.
+- PAT92-S_204 is a Citrobacter sample.
+
+
+<!-- Fan addition -->
+<!-- We remove PAT182-S_394, leaving us with 258 samples. -->
+
+All of this is in a file called __*`deduplicatedAssembly.csv`*__.
+
+<!-- All the numbers are shown in the Venn plot figure 2 which I obtained by sorting and counting on the spreadsheet above. -->
+
+The R pipeline to obtain this file is in `checkSamples.R`.
+<!-- (*do we need to study coverage?*) -->
+
+<!-- - Samtools consensus with quality filters only managed to reconstruct *#N#* of the 301 files. -->
+<!-- - Samtools consensus with quality filters only managed to reconstruct *#N#* of the 301 files. -->
+- We visually checked the dotplots obtained with mummer4 to be sure that those samples had problems.
+- We also checked the dotplots of the samples in the longer 'Epidemic' clade.
+<!-- - We also ran __quast__ to __enter details here__. -->
+
+
+A further 3 patients are removed from the dataset: PAT186, PAT230, PAT243.
+The samples for these 3 patients either:
+- have a partial plasmid sequence, so we removed the sample, or
+- had two samples taken on the same day and were very similar but in different hosts (or the host assignation was not univocal) and we had no way of choosing a "trusted" representative, so we flushed both of them.
+ 
+This leaves us with 256 samples from 115 patients.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Alignment and Tree building
+
+## Step 1: alignment 
+
+We aligned all the assembled files using mafft with default options.
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash Mafft_default_options, echo=TRUE,eval=FALSE}
+mafft deduplicated_id_seq_clean_aligned.fasta > REalign_deduplicated_id_seq_clean.fasta
+
+```
+\normalsize
+:::
+
+## Step 2: cleaning the alignment
+
+The alignment has several regions where the sequences did not align properly. Mutations closely adjacent to gapped regions cannot be trusted as could be resulting from misalignments in the gapped region.
+To mask these regions we used an algorithm in two steps:
+
+1. IF in a certain position gaps accounted for more than 10% of the sequences (n=24) we masked all the mutations in all samples within 50 bases from this position
+2. IF in a certain position gaps accounted for less than 10% of the sequences (n<24) we masked we masked all the mutations within 50 bases from this position but only in the samples where the gaps were present. 
+
+The rationale for this choice was that if gaps were present in more than 10% of the sequences we were likely dealing with a variable region that could not be properly aligned everywhere, if the gaps were present in fewer than 10% of the sequences we asssume that the problem was lying only in the affected sequences and not intrinsically in the genomic region.
+
+In this way we ended up masking 5989 sites out of 63797 of the entire alignment (9.3% of the sites)
+
+The script to do this is *maskingAlignment0.2.R*
+
+The output is *Final_alignment_masked_PAT_50bases_0.1samples.fst*
+
+All the masked intervals are saved in a table called *table_masked.csv*
+
+## Step 3: making the tree
+
+We built the tree using IQtree under the GTR substitution model (cite Tavare 1986) with the discrete Gamma model (cite Yang, 1994) with the 4 default rate categories to correct for rate heterogeneity across sites .
+
+Since the tree is a binary object and in this dataset there are many identical sequences, we did not want the tree to show small branches where there were none.
+For this reason we used the flag `-blim` to set the length of such branches very short, invisible to the plotted tree.
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+\small
+```{bash IQtree, echo=TRUE,eval=FALSE}
+iqtree -s Final_alignment_masked_PAT_50bases_0.1samples.fst -m GTR+G -blmin 0.00000001
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+# Assigning bacterial host
+
+Bacterial hosts were assigned via "maldi tof" in the lab, and then confirmed and detailed "in silico".
+The species characterization resulting from this process is here. It covers all the 310 samples.
+
+
+
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>r</tt> </div>
+\small
+```{r species_given, echo=TRUE,eval=FALSE}
+library(tidyverse)
+library(ape)
+
+sttab_OXA48<-as_tibble(read.csv("sttab_OXA48.csv"))
+
+sttab_OXA48 %>% group_by(SP) %>% count() %>% arrange(desc(n))
+```
+\normalsize
+:::
+
+We decided to check the bacterial host species by running [`MLST`](https://github.com/tseemann/mlst) on the `SPAdes` assembly (*not* described above).
+`MLST` produced results for 305 of the 310 samples and the species assigned were quite varied:
+
+
+
+
+
+
+
+
+
+
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>r</tt> </div>
+\small
+```{r species_mlst, echo=TRUE,eval=FALSE}
+library(tidyverse)
+library(ape)
+
+mlst_output_filepath <- "mlst_output_Fan_clean.csv"
+
+newMLST<-as_tibble(read.csv(mlst_output_filepath)) %>%
+mutate(SP=pubmlst_scheme_name) %>% mutate(SP=ifelse(SP=="kpneumoniae","Klebsiella_pneumoniae",SP)) %>%
+  mutate(SP=ifelse(SP=="koxytoca","Klebsiella_oxytoca",SP)) %>%
+  mutate(SP=ifelse(SP=="ecloacae","Enterobacter_cloacae",SP)) %>%
+  mutate(SP=ifelse(SP=="ecoli","Escherichia_coli",SP)) %>%
+  mutate(SP=ifelse(SP=="paeruginosa","Pseudomonas_aeruginosa",SP)) %>%
+  mutate(SP=ifelse(SP=="senterica","Salmonella_enterica",SP)) %>%
+  mutate(SP=ifelse(SP=="cfreundii","Citrobacter_freundii",SP)) 
+
+newMLST %>% group_by (SP) %>% count() %>% arrange(desc(n))
+```
+\normalsize
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Within-patient analysis
+The R scripts for the within patient analysis are in __"withinPatDistNewDedu.R"__ in the repository.
+
+The statistical analysis of the distribution of SNPs comparing between patient and within patient population has been done in the following notebooks in the repository:
+<!-- [https://gitlab.phe.gov.uk/advanced-analytics/plasmids](https://gitlab.phe.gov.uk/advanced-analytics/plasmids): -->
+
+- `negative_binomial_GLM.R`
+- `non_parametric_tests.ipynb`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Genomic analysis
+We wanted to understand which mutations characterised each subclade.
+First off we need to add node labels to the tree, as we will need it later on.
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>r</tt> </div>
+\small
+```{r node_labels_R,eval=FALSE, echo=TRUE}
+library(tidyverse)
+library(ape)
+
+masked_tree_Pat<-read.tree("Final_alignment_masked_PAT_50bases_0.1samples.fst.treefile")
+masked_tree_Pat$node.label<-paste("node",1:masked_tree_Pat$Nnode, sep="-")
+write.tree(masked_tree_Pat, "Final_NODES_alignment_masked_PAT_50bases_0.1samples.fst.treefile" )
+```
+\normalsize
+:::
+
+Then we run [`augur ancestral`](https://github.com/nextstrain/augur) using the following script:
+
+:::{.border style="padding: 10px; border: 1px solid #dee2e6 !important;"}
+<div style="border:1px solid #dee2e6; padding-left: 10px">Language: <tt>bash</tt> </div>
+<!-- VERSION FOR PDF -->
+\small
+```{bash augur, echo=TRUE,eval=FALSE, fig.cap="Augur ancestral script"}
+augur ancestral \
+--tree Final_NODES_alignment_masked_PAT_50bases_0.1samples.fst.treefile \
+--alignment Final_alignment_masked_PAT_50bases_0.1samples.fst \
+--root-sequence pOXA48.fst \
+--keep-ambiguous \
+--output-node-data Final_NODES_augur.output_dedu.data.json \
+--output-sequences Final_NODES_augur.output_dedu.seq.fst
+
+```
+\normalsize
+<!-- VERSION FOR HTML -->
+<!-- ```{bash augur, echo=TRUE,eval=FALSE, fig.cap="Augur ancestral script"} -->
+<!-- augur ancestral --tree Final_NODES_alignment_masked_PAT_50bases_0.1samples.fst.treefile --alignment Final_alignment_masked_PAT_50bases_0.1samples.fst --root-sequence pOXA48.fst --keep-ambiguous --output-node-data Final_NODES_augur.output_dedu.data.json --output-sequences Final_NODES_augur.output_dedu.seq.fst -->
+
+<!-- ``` -->
+:::
+
