@@ -1,7 +1,7 @@
 ---
 title: "Supplementary Methods"
 subtitle: "Plasmid conjugation drives within-patient plasmid diversity" 
-author: 'Alice Ledda, Fan Grayson, Toby Nonnenmacher, Leo Loman, UK Health Security Agency'
+author: "This document provides information on the code and analysis used." #'Alice Ledda, Fan Grayson, Toby Nonnenmacher, Leo Loman, UK Health Security Agency'
 date: ""
 output:
   html_document:
@@ -57,7 +57,6 @@ library(ape)
 
 
 
-This document provides information on the code and analysis used for our research project.
 
 
 
@@ -996,41 +995,54 @@ We keep the other non-discarded sample and remove the '.0' or '.1' suffix. (e.g.
 After deduplication, we were left with 262 samples (and fastq files) from 118 patients.
 The script used to deduplicate all the files is `scripts/Deduplicate.R`
 
+
+
+# Files
+
 The new files for reprocessing many of the analysis above after deduplication are as follows:
 
 - epi data that came with the files:
   - Original file `20210615-dataKatieMolis.csv`.
-  - __Deduplicated file "finalEpiDataRef.csv"__
+  - __Deduplicated file `finalEpiDataRef.csv`__ (relevant data from this has been merged into `supplementary_data.csv`)
 - spreadsheet with assembly data:
   - Original file `PlasmidsToDelete-AssemblytoClean.csv`.
   - __Deduplicated file `deduplicatedAssembly.csv` __
-- full aligment of all the reconstructed plasmids.
+  - __Cleaned with MOLIS IDs removed: `supplementary_data.csv`__ 
+- full alignment of all the reconstructed plasmids.
   - Original file "all_clean_id_aligned.fst".
   - __Deduplicated file `deduplicated_id_seq_clean_aligned.fasta`__
+  - __Cleaned with MOLIS IDs removed: `aligned_sequences.fasta`__
   - Aligned file (see below) __`REalign_deduplicated_id_seq_clean.fst`__.
   - File with Patient Ids instead of MOLIS IDs __`REalign_deduplicated_id_seq_clean_PAT.fst`__
 - Alignment above with problematic regions masked off (See below for details):
   - __Deduplicated file `Final_alignment_masked_PAT_50bases_0.1samples.fst`__
   - _NOTE: the deduplicated file has had the MOLIS_ID subsituted with the PAT-Sample_IDs_
 
-New R scripts that run the analysis on deduplicated files:
+# Scripts
 
-- script for making all the plots of epidemiological features of dataset (Figure 1):
+R scripts that run the analysis on deduplicated files:
+
+- script for making all the plots of epidemiological features of dataset (Figure 1 in paper):
   - `plotting_epidemiological_features.R`
+- script for making plot of genetic distances for between and within-patient (Figure 4 in paper):
+  - `plotting_pairwise_genetic_distance_distributions.R`
   <!-- - *`scripts/ResultsScriptDeduplicateFinal.R`* -->
 - script for tree figures:
   <!-- - *`scripts/TreePlot_Plasmids_dedu_Final.R`* -->
   - `plotting_trees.R`
 - script for redoing the tree (see forward for details):
-  - `scripts/Re-alignment4betterTree.R` and `mask_mutations_mainclade_OXA48.R`
+  - `scripts/Re-alignment4betterTree.R`
+  - `scripts/mask_mutations_mainclade_OXA48.R`
 - script for within patient genetic distance analysis:
   - `scripts/withinPatDistNewDedu.R`
-- script to create the same patient trees:
-  - `scripts/treeSamePAT.R`
 - script for the genomic analysis:
   - `scripts/Genomic_analysis.R`
 - script for parametric hypothesis tests:
+  - `scripts/negative_binomial_glm_hypothesis_test.R`
 - script for non-parametric hypothesis tests:
+  - `scripts/non_parametric_hypothesis_test.py`
+- script for preparing the files for `Genomic_analysis.R`:
+  - `scripts/AugurJsonScript.R`
 
 
 
@@ -1076,7 +1088,7 @@ We remove the samples from patient PAT202.
 <!-- Fan addition -->
 <!-- We remove PAT182-S_394, leaving us with 258 samples. -->
 
-All of this is in a file called __*`deduplicatedAssembly.csv`*__.
+All of this is in a file called __*`deduplicatedAssembly.csv`*__. The cleaned version of this file (given) is __*`supplementary_data.csv`*__.
 
 <!-- All the numbers are shown in the Venn plot figure 2 which I obtained by sorting and counting on the spreadsheet above. -->
 
@@ -1251,13 +1263,13 @@ newMLST %>% group_by (SP) %>% count() %>% arrange(desc(n))
 # Within-patient analysis
 The R scripts for the within patient analysis are in __"withinPatDistNewDedu.R"__ in the repository.
 
-The statistical analysis of the distribution of SNPs comparing between patient and within patient population has been done in the following notebooks in the repository:
+The statistical analysis of the distribution of SNPs comparing between patient and within patient population has been done in the following notebooks in the repository (in the `scripts` folder):
 <!-- [https://gitlab.phe.gov.uk/advanced-analytics/plasmids](https://gitlab.phe.gov.uk/advanced-analytics/plasmids): -->
 
-- `negative_binomial_GLM.R`
-- `non_parametric_tests.ipynb`
+- `negative_binomial_glm_hypothesis_test`
+- `non_parametric_hypothesis_test.py`
 
-
+The data used is created in the `plotting_pairwise_genetic_distance_distributions.R` script, and is saved as `genetic_distance_table.csv`.
 
 
 
@@ -1321,3 +1333,4 @@ augur ancestral \
 <!-- ``` -->
 :::
 
+The results from Augur ancestral were processed using the scripts `AugurJsonScript.R` and `Genomic_analysis.R` to produce figure 9
