@@ -11,7 +11,7 @@ library(RColorBrewer)
 library(latex2exp)
 library("dplyr")
 
-setwd("C:/Users/fan.grayson/Documents/AA PROJECTS/REPOSITORIES/within-patient-pOXA48-conjugation")
+
 source("scripts/DistDate.R")
 
 
@@ -193,9 +193,9 @@ ggplot(genetic_distance_table %>% filter(within_patient == FALSE) , aes(x=SNPs))
   # geom_histogram(col="white", width=1,breaks=c(-0.5, seq(1,10,1) - 0.5, seq(20,100,10) - 5, seq(200, 1000, 100) - 50, seq(2000, 10000, 1000) - 500, seq(20000,100000, 10000) - 5000))+
   # geom_histogram(col="white", breaks=c(seq(0,10,1), seq(15,95,5), seq(100,700, 50)))+
   # scale_x_log10() +
-  # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
   # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,700), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,700,100)), limits=c(NA, 700)) +
-  # scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,400,100))) +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,400,100))) +
   theme_void() +
   do.call(theme, custom_ukhsa_theme) + # theme with custom_ukhsa_theme passed as arguments
   ggtitle("Distribution of SNPs", subtitle="\nPairs of Samples Between Patients (excluding Reference)") +
@@ -218,7 +218,7 @@ ggplot(genetic_distance_table %>% filter(within_patient == TRUE) , aes(x=SNPs))+
   # geom_histogram(col="white", width=1,breaks=c(-0.5, seq(1,10,1) - 0.5, seq(20,100,10) - 5, seq(200, 1000, 100) - 50, seq(2000, 10000, 1000) - 500, seq(20000,100000, 10000) - 5000))+
   # geom_histogram(col="white", breaks=c(seq(0,10,1), seq(15,95,5), seq(100,700, 50)))+
   # scale_x_log10() +
-  # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
   # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,700), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,700,100)), limits=c(NA, 700)) +
   scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,400,100))) +
   theme_void() +
@@ -229,5 +229,5 @@ ggplot(genetic_distance_table %>% filter(within_patient == TRUE) , aes(x=SNPs))+
   geom_hline(yintercept=0, color="grey")+
   theme(panel.grid.minor.y  = element_line(color="gray75", linetype = "dotted"))
 
-ggsave("snp_distribution_within_patient_pairs.pdf", width=default_figure_width, height=default_figure_height, units = "cm")
+ggsave("figures/snp_distribution_within_patient_pairs.pdf", width=default_figure_width, height=default_figure_height, units = "cm")
 
