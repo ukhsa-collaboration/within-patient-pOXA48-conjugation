@@ -1,0 +1,16 @@
+# Folders to ignore
+data/*
+
+# File types
+*.json
+*.csv
+*.fasta
+*.fastq
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Other
+*.pyc
+*.cpython-39.pyc
