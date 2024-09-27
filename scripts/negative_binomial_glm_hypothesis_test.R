@@ -67,10 +67,10 @@ hist(my_data[my_data$population == 0,]$SNPs, breaks = 100)
 #################### REPEATING ANALYSIS FOR NORTH WEST ##########################
 #################################################################################
 
-stop("You will need the unmasked data with MOLIS-ID's to run this next bit of the script")
+stop("You will need the unmasked data with SAMPLE_ID-ID's to run this next bit of the script")
 
 # Read in epi data
-epi_data <- read.csv("data/finalEpiDataRef.csv")
+epi_data <- read.csv("data/supplementary_data.csv")
 
 # Upload unmasked data
 unmasked_data <- read.csv("data/genetic_distance_table.csv")
@@ -78,6 +78,8 @@ unmasked_data <- read.csv("data/genetic_distance_table.csv")
 # Remove the comparison to reference plasmids
 unmasked_data <- unmasked_data[unmasked_data$pl1_pat != "Reference", ]
 unmasked_data <- unmasked_data[unmasked_data$pl2_pat != "Reference", ]
+unmasked_data <- unmasked_data[unmasked_data$pl1_pat != "JN626286", ]
+unmasked_data <- unmasked_data[unmasked_data$pl2_pat != "JN626286", ]
 
 # create a column which checks if the plasmids is being compared to itself
 unmasked_data$same_sample = unmasked_data$pl1 == unmasked_data$pl2
@@ -86,8 +88,8 @@ unmasked_data$same_sample = unmasked_data$pl1 == unmasked_data$pl2
 unmasked_data$population <- as.numeric(unmasked_data$within_patient == "True")
 
 # add region data:
-region_data_1 <- epi_data %>% select(MOLIS, Region) %>% rename(pl1 = MOLIS, pl1_region = Region)
-region_data_2 <- epi_data %>% select(MOLIS, Region) %>% rename(pl2 = MOLIS, pl2_region = Region)
+region_data_1 <- epi_data %>% select(SAMPLE_ID, REGION) %>% rename(pl1 = SAMPLE_ID, pl1_region = REGION)
+region_data_2 <- epi_data %>% select(SAMPLE_ID, REGION) %>% rename(pl2 = SAMPLE_ID, pl2_region = REGION)
 unmasked_data <- left_join(unmasked_data, region_data_1, by = "pl1")
 unmasked_data <- left_join(unmasked_data, region_data_2, by = "pl2")
 

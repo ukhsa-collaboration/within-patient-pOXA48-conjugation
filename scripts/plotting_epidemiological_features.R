@@ -49,7 +49,7 @@ default_figure_height <- 16
 # Read in epi file (contains data on region, species, time, ...)
 
 
-epi_table<-as_tibble(read.table(file="data/plasmid_assembly_data.csv", sep=",",  header=TRUE))
+epi_table<-as_tibble(read.table(file="data/supplementary_data.csv", sep=",",  header=TRUE))
 
 # Removing 3 Patients (see methods.rmd)
 # patients_to_remove <- c("PAT182", "PAT202", "PAT230")

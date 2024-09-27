@@ -30,7 +30,7 @@ df = pd.read_csv("data/genetic_distance_table.csv")
 print(df.head())
 
 df.loc[:,'same_sample'] = df.pl1_masked == df.pl2_masked
-df = df[(df.pl1_masked != 'Reference') & (df.pl2_masked != 'Reference') & (df.same_sample != 1)].rename(columns = {'within_patient':'population'}).copy()
+df = df[(~df.pl1_masked.isin(["Reference", "JN626286"])) & (~df.pl2_masked.isin(["Reference", "JN626286"])) & (df.same_sample != 1)].rename(columns = {'within_patient':'population'}).copy()
 
 
 # Mean and standard deviation of each population:
@@ -88,16 +88,16 @@ print(wsr_table_df)
 
 
 # Repeating analysis just for the N West
-region_data = pd.read_csv("data/finalEpiDataRef.csv")[["MOLIS", "Region"]]
+region_data = pd.read_csv("data/supplementary_data.csv")[["SAMPLE_ID", "REGION"]]
 
 NW_df = (
     pd.read_csv("data/genetic_distance_table.csv")
-    .merge(region_data.rename({"MOLIS": "pl1", "Region": "pl1_region"}, axis=1), on="pl1", how="left")
-    .merge(region_data.rename({"MOLIS": "pl2", "Region": "pl2_region"}, axis=1), on="pl2", how="left")
+    .merge(region_data.rename({"SAMPLE_ID": "pl1", "REGION": "pl1_region"}, axis=1), on="pl1", how="left")
+    .merge(region_data.rename({"SAMPLE_ID": "pl2", "REGION": "pl2_region"}, axis=1), on="pl2", how="left")
 )
 NW_df.loc[:,'same_sample'] = NW_df.pl1 == NW_df.pl2
 NW_df = NW_df.loc[(NW_df.pl1_region == "N WEST") & (NW_df.pl2_region == "N WEST")]
-NW_df = NW_df.loc[(NW_df.pl1_pat != 'Reference') & (NW_df.pl2_pat != 'Reference') & (NW_df.same_sample != 1)].rename(columns = {'within_patient':'population'}).copy()
+NW_df = NW_df.loc[(~NW_df.pl1_pat.isin(["Reference", "JN626286"])) & (~NW_df.pl2_pat.isin(["Reference", "JN626286"])) & (NW_df.same_sample != 1)].rename(columns = {'within_patient':'population'}).copy()
 
 print("FOR NORTH WEST ONLY")
 
