@@ -49,27 +49,31 @@ default_figure_height <- 16
 # Read in epi file (contains data on region, species, time, ...)
 
 
-epi_table<-as_tibble(read.table(file="./data/finalEpiDataRef.csv", sep=",",  header=TRUE))
+epi_table<-as_tibble(read.table(file="./data/plasmid_assembly_data.csv", sep=",",  header=TRUE))
 
 # Removing 3 Patients (see methods.rmd)
-patients_to_remove <- c("PAT182", "PAT202", "PAT230")
-epi_table <- epi_table %>% filter(! ORDPATNAME %in% patients_to_remove)
+# patients_to_remove <- c("PAT182", "PAT202", "PAT230")
+# epi_table <- epi_table %>% filter(! PATIENT_ID %in% patients_to_remove)
 
+epi_table$SAMPLE_DATE <- as.Date(epi_table$SAMPLE_DATE)
+epi_table$day <- as.numeric(format(epi_table$SAMPLE_DATE, format = "%d"))
+epi_table$month <- as.numeric(format(epi_table$SAMPLE_DATE, format = "%m"))
+epi_table$year <- as.numeric(format(epi_table$SAMPLE_DATE, format = "%Y"))
 
 # computing the time distances between samples (in days)
 epi_table<-epi_table %>%
   mutate(timeDist=unlist(pmap(list(day,month,year),distanceDate))) %>% 
   mutate(dateS=unlist(pmap(list(day,month,year),function(x,y,z){as.Date(str_c(c(z,y,x),collapse="-"))}))) %>%
   mutate(timeDec=unlist(pmap(list(day,month,year),function(x,y,z){decimal_date(as.Date(str_c(c(z,y,x),collapse="-")))}))) %>%
-  mutate(PatSample=str_c(ORDPATNAME, SAMPLE_ID,sep="-")) %>% mutate(PatRes=str_c(ORDPATNAME, CARB,sep="-")) %>%
-  mutate(PatSp=str_c(ORDPATNAME, Species,sep="-"))
+  mutate(PatSample=str_c(PATIENT_ID, SAMPLE_ID,sep="-")) %>% mutate(PatRes=str_c(PATIENT_ID, CARB,sep="-")) %>%
+  mutate(PatSp=str_c(PATIENT_ID, SPECIES,sep="-"))
 # Removing timedist outlier: (<0 days - this was because of an error - date of birth was keyed in as a sample date)
 epi_table<-epi_table %>% mutate(timeDist = ifelse(timeDist < 0, NA, timeDist))
 
 #############################################################
-OXApatients<- epi_table %>%  select (ORDPATNAME) %>% unique ()
+OXApatients<- epi_table %>%  select (PATIENT_ID) %>% unique ()
 
-timedOXA<- epi_table %>% filter (ORDPATNAME %in% as.vector(OXApatients$ORDPATNAME) )
+timedOXA<- epi_table %>% filter (PATIENT_ID %in% as.vector(OXApatients$PATIENT_ID) )
 
 
 
@@ -82,7 +86,7 @@ timedOXA<- epi_table %>% filter (ORDPATNAME %in% as.vector(OXApatients$ORDPATNAM
 #####################################################################################
 # READ DATA: ALIGNED SEQUENCE DATA + CALCULATE GENETIC DISTANCES
 #####################################################################################
-cleaned_and_aligned_sequence_data<-read.dna("./data/deduplicated_id_seq_clean_aligned.fasta",format="fasta")
+cleaned_and_aligned_sequence_data<-read.dna("./data/aligned_sequences.fasta",format="fasta")
 # Calculating SNPs
 genetic_distance_matrix<-dist.dna(cleaned_and_aligned_sequence_data, model="N", as.matrix=TRUE)
 # REMOVING LOWER TRIANGULAR (as genetic distance of a-b is the same as b-a; so we would have twice as many data points, needlessly) + DIAGONAL (genetic distance of a-a is 0, this will skew the distributions)
@@ -96,14 +100,13 @@ genetic_distance_table <- data.frame( pl1 = dimnames(genetic_distance_matrix)[[2
 genetic_distance_table<-genetic_distance_table %>% 
   mutate(SNPs=as.numeric(SNPs))
 # Joining patient id information:
-genetic_distance_table <- left_join(genetic_distance_table, epi_table %>% select(MOLIS, ORDPATNAME) %>% mutate(ORDPATNAME=ifelse(is.na(ORDPATNAME), "Reference", ORDPATNAME)) %>% dplyr::rename(pl1=MOLIS, pl1_pat=ORDPATNAME), by = "pl1")
-genetic_distance_table <- left_join(genetic_distance_table, epi_table %>% select(MOLIS, ORDPATNAME) %>% mutate(ORDPATNAME=ifelse(is.na(ORDPATNAME), "Reference", ORDPATNAME)) %>% dplyr::rename(pl2=MOLIS, pl2_pat=ORDPATNAME), by = "pl2")
+genetic_distance_table <- left_join(genetic_distance_table, epi_table %>% select(SAMPLE_ID, PATIENT_ID) %>% mutate(PATIENT_ID=ifelse(is.na(PATIENT_ID), "Reference", PATIENT_ID)) %>% dplyr::rename(pl1=SAMPLE_ID, pl1_pat=PATIENT_ID), by = "pl1")
+genetic_distance_table <- left_join(genetic_distance_table, epi_table %>% select(SAMPLE_ID, PATIENT_ID) %>% mutate(PATIENT_ID=ifelse(is.na(PATIENT_ID), "Reference", PATIENT_ID)) %>% dplyr::rename(pl2=SAMPLE_ID, pl2_pat=PATIENT_ID), by = "pl2")
 # Adding between/within patient data:
 genetic_distance_table$within_patient <- (genetic_distance_table$pl1_pat == genetic_distance_table$pl2_pat)
 # genetic_distance_table[genetic_distance_table$pl1_pat == "Reference",]$within_patient <- NA
-genetic_distance_table[genetic_distance_table$pl2_pat == "Reference",]$within_patient <- NA
+# genetic_distance_table[genetic_distance_table$pl2_pat == "Reference",]$within_patient <- NA
 
-write.csv(genetic_distance_table %>% select(c("pl1_pat", "pl2_pat", "SNPs", "within_patient")),"data/genetic_distance_table_removed_molis.csv", row.names = FALSE)
 write.csv(genetic_distance_table,"data/genetic_distance_table.csv", row.names = FALSE)
 
 
