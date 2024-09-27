@@ -14,31 +14,7 @@ library("dplyr")
 
 source("scripts/DistDate.R")
 
-
-
-
-
-
-
-# UKHSA colour scheme:
-UKHSA_cols <- list(
-  UKHSA.teal = "#007C91",
-  midnight   = "#003B5C",
-  plum       = "#582C83",
-  moonlight  = "#1D57A5",
-  wine       = "#8A1B61",
-  cherry     = "#E40046",
-  DHSC.green = "#00AB8E",
-  ocean      = "#00A5DF",
-  grass      = "#84BD00",
-  tangerine  = "#FF7F32",
-  sunny      = "#FFB81C",
-  sand       = "#D5CB9F"
-)
-
-UKHSA_cols_ordered = c(UKHSA_cols$plum, UKHSA_cols$grass, UKHSA_cols$tangerine, UKHSA_cols$cherry, UKHSA_cols$moonlight, UKHSA_cols$sunny, UKHSA_cols$wine, UKHSA_cols$DHSC.green, UKHSA_cols$sand, UKHSA_cols$midnight)
-
-custom_ukhsa_theme <- list(legend.position     ="none",
+custom_theme <- list(legend.position     ="none",
                            panel.grid.major.y  = element_line(color="grey"),
                            # AXIS
                            axis.text.x         = element_text(size=12, colour="black", margin=margin(t=-10)),
@@ -114,7 +90,7 @@ plot_1 <- ggplot(epi_table_grouped_by_patient, aes(x=n)) +
   # geom_bar(fill="gray50") +
   geom_histogram(col="white", size=2, binwidth=1, fill="gray50") +
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) +
+  do.call(theme, custom_theme) +
   ggtitle("1A. Number of Samples per Patient") +
   xlab("Number of Samples per Patient") +
   ylab("Count") +
@@ -145,7 +121,7 @@ plot_2 <- ggplot(epi_table_grouped_by_region, aes(x=Region.Category)) +
   geom_bar(stat="count", fill="gray50") +
 
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) + # theme with custom_ukhsa_theme passed as arguments
+  do.call(theme, custom_theme) + # theme with custom_theme passed as arguments
   ggtitle("1B. Region of Patient") +
   xlab("\nRegion") +
   ylab("Count\n") +
@@ -163,7 +139,7 @@ plot_3 <- ggplot(epi_table_grouped_by_patient, aes(x=timediff)) +
   geom_histogram(col="white", size=1, fill="gray50") +
   scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500)) +
   theme_void() + 
-  do.call(theme, custom_ukhsa_theme) +
+  do.call(theme, custom_theme) +
   ggtitle("1C. Time Between Patient's First and Last Sample") +
   xlab("Time (days)") +
   ylab("Count\n") +
@@ -184,7 +160,7 @@ timedOXAallMY <- timedOXAallMY %>% mutate(sample.date=as.Date(with(timedOXAallMY
 plot_4 <- ggplot(timedOXAallMY %>% drop_na(sample.date) %>% filter(sample.date != "1947-11-23 "), aes(x=sample.date)) +
   geom_histogram(bins=36, col="white", size=1, fill="gray50") +
   theme_void() + 
-  do.call(theme, custom_ukhsa_theme) +
+  do.call(theme, custom_theme) +
   ggtitle("1D. Date Sample Taken") +
   xlab("Date") +
   ylab("Count\n") +
@@ -240,7 +216,7 @@ plot_5 <- ggplot(species_count_table, aes(x=n, y=reorder(Species,n,decreasing=TR
   ) +
   scale_x_discrete(breaks=c(0,20,40,60,80,100)) +
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) +
+  do.call(theme, custom_theme) +
   # ggtitle("Distribution of Species") +
   ggtitle("1E. Sample Species") +
   xlab("Count") +
@@ -308,7 +284,7 @@ plot_6 <- ggplot(strain_count_table %>% filter(n>2), aes(x=n, y=reorder(SpeciesS
     na.value = "white"
   ) +
   theme_void()+
-  do.call(theme, custom_ukhsa_theme) +
+  do.call(theme, custom_theme) +
   ggtitle(label="1F. Sample Strain", subtitle="Only strains with at least 3 samples shown") +
   # ggtitle(label="Distribution of Strains", subtitle="Strains with at least 3 samples (not all strain data is present in the dataset)") +
   xlab("Count") +

@@ -14,31 +14,7 @@ library("dplyr")
 
 source("scripts/DistDate.R")
 
-
-
-
-
-
-
-# UKHSA colour scheme:
-UKHSA_cols <- list(
-  UKHSA.teal = "#007C91",
-  midnight   = "#003B5C",
-  plum       = "#582C83",
-  moonlight  = "#1D57A5",
-  wine       = "#8A1B61",
-  cherry     = "#E40046",
-  DHSC.green = "#00AB8E",
-  ocean      = "#00A5DF",
-  grass      = "#84BD00",
-  tangerine  = "#FF7F32",
-  sunny      = "#FFB81C",
-  sand       = "#D5CB9F"
-)
-
-UKHSA_cols_ordered = c(UKHSA_cols$plum, UKHSA_cols$grass, UKHSA_cols$tangerine, UKHSA_cols$cherry, UKHSA_cols$moonlight, UKHSA_cols$sunny, UKHSA_cols$wine, UKHSA_cols$DHSC.green, UKHSA_cols$sand, UKHSA_cols$midnight)
-
-custom_ukhsa_theme <- list(legend.position     ="none",
+custom_theme <- list(legend.position     ="none",
                            panel.grid.major.y  = element_line(color="grey"),
                            # AXIS
                            axis.text.x         = element_text(size=12, colour="black", margin=margin(t=-10)),
@@ -162,16 +138,17 @@ genetic_distance_table <- genetic_distance_table %>%
   filter(pl2 != "Reference") # remove any reference plasmid
 
 ggplot(genetic_distance_table , aes(x=SNPs))+
-  geom_histogram(col="white", bins=101)+
+  geom_histogram(col="white", bins=31)+
   # geom_histogram(col="white", width=1,breaks=c(-0.5, seq(1,10,1) - 0.5, seq(20,100,10) - 5, seq(200, 1000, 100) - 50, seq(2000, 10000, 1000) - 500, seq(20000,100000, 10000) - 5000))+
   # geom_histogram(col="white", breaks=c(seq(0,10,1), seq(15,95,5), seq(100,700, 50)))+
   # scale_x_log10() +
   # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
   scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,700), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,700,100))) +
-  ylim(0,12000) +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100, 1000, 10000), limits=c(NA,20000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100), seq(2000,9000,1000), 20000)) +
+  # ylim(0,12000) +
   # scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), limits=c(NA,30000), breaks=c(0,1,10,100,1000, 10000, 30000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100), seq(2000,9000,1000), seq(20000,30000,10000))) +
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) + # theme with custom_ukhsa_theme passed as arguments
+  do.call(theme, custom_theme) + # theme with custom_theme passed as arguments
   ggtitle("Distribution of SNPs", subtitle="\nAll Pairs of Samples (excluding Reference)") +
   xlab("SNPs") +
   ylab("Count\n") +
@@ -195,16 +172,16 @@ ggplot(genetic_distance_table %>% filter(within_patient == FALSE) , aes(x=SNPs))
   # scale_x_log10() +
   scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,1000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100)), limits=c(NA, 1000)) +
   # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,700), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,700,100)), limits=c(NA, 700)) +
-  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,400,100))) +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100, 1000, 10000), limits=c(NA,20000), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,900,100), seq(2000,9000,1000), 20000)) +
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) + # theme with custom_ukhsa_theme passed as arguments
+  do.call(theme, custom_theme) + # theme with custom_theme passed as arguments
   ggtitle("Distribution of SNPs", subtitle="\nPairs of Samples Between Patients (excluding Reference)") +
   xlab("SNPs") +
   ylab("Count\n") +
   geom_hline(yintercept=0, color="grey")+
   theme(panel.grid.minor.y  = element_line(color="gray75", linetype = "dotted"))
 
-ggsave("figures/snp_distribution_within_patient_pairs.pdf", width=default_figure_width, height=default_figure_height, units = "cm")
+ggsave("figures/snp_distribution_between_patient_pairs.pdf", width=default_figure_width, height=default_figure_height, units = "cm")
 
 
 
@@ -222,7 +199,7 @@ ggplot(genetic_distance_table %>% filter(within_patient == TRUE) , aes(x=SNPs))+
   # scale_x_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,700), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,700,100)), limits=c(NA, 700)) +
   scale_y_continuous(trans=scales::pseudo_log_trans(base = 10), breaks=c(0,1,10,100,500), limits=c(NA,500), minor_breaks=c(seq(2,9,1), seq(20,90,10), seq(200,400,100))) +
   theme_void() +
-  do.call(theme, custom_ukhsa_theme) + # theme with custom_ukhsa_theme passed as arguments
+  do.call(theme, custom_theme) + # theme with custom_theme passed as arguments
   ggtitle("Distribution of SNPs", subtitle="\nPairs of Samples Within Patients (excluding Reference)") +
   xlab("SNPs") +
   ylab("Count\n") +
